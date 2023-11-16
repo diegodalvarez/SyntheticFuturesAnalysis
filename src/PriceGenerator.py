@@ -36,12 +36,18 @@ class PriceGenerator:
     
     def _add_contract_name(self, df: pd.DataFrame) -> pd.DataFrame:
         
-        contract_count = len(df)
-        contract = self.df_roll_add.contract_name.drop_duplicates()
-        contract_specific = ["{}{}".format(contract, i + 2) for i in range(contract_count)]
-        df_out = df.assign(specific_contract = contract_specific)
+        contract = df.contract_name.drop_duplicates().to_list()[0]
+        contract_spec = ["{}_{}".format(contract, i + 2) for i in range(len(df))]
+        df_out = df.assign(contract = contract_spec)
         
         return df_out
+    
+    def _cum_rtn(self, df: pd.DataFrame) -> pd.DataFrame:
+        
+        return(df.sort_values(
+            "nyc_time").
+            assign(
+                open_rtn = lambda x: np.cumprod(1 + x.rtn)))
         
     def __init__(
             self,
@@ -109,27 +115,52 @@ class PriceGenerator:
         self.df_roll_add = (self.df_roll.assign(
             roll = self.curve_roll,
             rtn = lambda x: x.rtn + x.roll).
-            drop(columns = ["roll"]).
-            assign(zone_local_locater = lambda x: x.zone + " " + x.local_time.dt.strftime("%Y-%m-%d %H:%M")))
+            drop(columns = ["roll"]))
         
         # since we roll onto a new contract we need to add the name
         self.df_roll_name = (self.df_roll_add.groupby([
-            "contract"]).
+            "contract_name"]).
             apply(self._add_contract_name))
         
-        '''
-        self.roll_specific_datetimes = self.df_roll_add.zone_local_locater.to_list()
+        # combine the roll changes and add in the names of the contract
+        self.df_combined = (self.df_roll_name.merge(
+            right = self.df_start,
+            how = "outer",
+            on = self.df_start.columns.to_list()).
+            sort_values(["contract_name", "nyc_time"]).
+            fillna(method = "ffill").
+            assign(contract = lambda x: x.contract.fillna(x.contract_name + "_1")).
+            groupby(["contract_name", "nyc_time"]).
+            head(1))
         
-        self.df_non_roll = (self.df_start.assign(
-            zone_local_locater = lambda x: x.zone + " " + x.local_time.dt.strftime("%Y-%m-%d %H:%M")).
-            query("zone_local_locater != @self.roll_specific_datetimes"))
+        # now calculate the cumulative returns as a multiplier for price per each contract
+        self.df_cumprod = (self.df_combined.groupby([
+            "contract_name"]).
+            apply(self._cum_rtn).
+            assign(
+                open_price = lambda x: x.start_price * x.open_rtn).
+            drop(columns = ["rtn", "start_price", "open_rtn"]))
         
-        self.df_combined = (pd.concat(
-            [self.df_roll_add, self.df_non_roll]).
-            drop(columns = ["zone_local_locater"]).
-            rename(columns = {"contract_name": "contract"}).
-            assign(contract_name = lambda x: x.contract + "_" + x.quarter.astype(str)))
-        '''
+        self.high_add = abs(np.random.normal(loc = 0.0, scale = 1, size = len(self.df_cumprod)))
+        self.low_add = -1 * abs(np.random.normal(loc = 0.0, scale = 1, size = len(self.df_cumprod)))
+        
+        self.close_add = self.high_add + self.low_add + np.random.normal(
+            loc = 0.0, scale = 0.0000001, size = len(self.df_cumprod))
+        
+        self.df_ohlc = (self.df_cumprod.assign(
+            high_add = self.high_add,
+            low_add = self.low_add,
+            close_add = self.close_add).assign(
+                high_add = lambda x: np.where(x.market_hour == "closed", np.nan, x.high_add),
+                low_add = lambda x: np.where(x.market_hour == "closed", np.nan, x.low_add),
+                close_add = lambda x: np.where(x.market_hour == "closed", np.nan, x.close_add)).
+            fillna(method = "ffill").
+            fillna(method = "bfill").
+            assign(
+                high_price = lambda x: x.open_price + x.high_add,
+                low_price = lambda x: x.open_price + x.low_add,
+                close_price = lambda x: x.open_price + x.close_add).
+            drop(columns = ["high_add", "low_add", "close_add"]))
         
 generator = PriceGenerator()
 
