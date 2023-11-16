@@ -8,7 +8,8 @@ Futures Project
 2. 15 Futures Contracts trading in their respective time zones (5 NYC, 5 Chicago, 3 London, 3 Tokyo)
 3. Contracts get rolled on the 15th or the following monday if weekend (roll cost will be an extra 2%)
 4. Work on a 250 day calendar and account for time zone changes
-5. Once data is simulated calculate the following
+5. Market hours are 9pm to 5pm the following days
+6. Once data is simulated calculate the following
 
 ### Functionality
 Upon initialization of the DataGenerator object most of the parameters can be modified although they are defaulted upon initialiation. Arguments are defaulted as 
