@@ -47,6 +47,10 @@ class DateGenerator:
 
     def _check_hours_count(self):
     
+    
+        # do to using year end and international times there are some days with less than a full trading day    
+        first_date = self.df_market.date.min().date()
+    
         bad_data = (self.df_market.query(
             "market_hour == 'open'")
             [["contract_name", "local_time"]].
@@ -59,7 +63,7 @@ class DateGenerator:
             agg("count")
             ["date_hour"].
             reset_index().
-            query("date_hour != 20"))
+            query("date_hour != 20 & date > @first_date"))
         
         if len(bad_data) == 0: 
             if self.verbose == True: print("Data has correct hours per day")
@@ -182,7 +186,7 @@ class DateGenerator:
                 date = lambda x: pd.to_datetime(x.local_time.dt.strftime("%Y-%m-%d")),
                 year = lambda x: x.date.dt.year).
             query("year >= @min_year & year < @max_year").
-            drop(columns = ["year"]))
+            drop(columns = ["year"])) 
         
         if self.verbose == True: print("Adding Holidays")
         
@@ -243,7 +247,11 @@ class DateGenerator:
         
         if self.verbose == True: print("File Written to", self.file_out)
 
+data_generator = DateGenerator()
+
+'''
 if __name__ == "__main__":
 
     date_generator = DateGenerator()
     date_generator.save_data()
+'''
