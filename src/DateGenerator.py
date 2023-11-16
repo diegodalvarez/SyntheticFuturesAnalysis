@@ -47,9 +47,9 @@ class DateGenerator:
 
     def _check_hours_count(self):
     
-    
-        # do to using year end and international times there are some days with less than a full trading day    
-        first_date = self.df_market.date.min().date()
+        # due to using year end and international times there are some days 
+        # with less than a full trading day which needs to be accounted for
+        first_date = self.df_market.date.min().date().strftime("%Y-%m-%d")
     
         bad_data = (self.df_market.query(
             "market_hour == 'open'")
@@ -69,7 +69,7 @@ class DateGenerator:
             if self.verbose == True: print("Data has correct hours per day")
             
         else: 
-            if self.verbose == True: print("Data does not have correct hours per day")
+            if self.verbose == True: print("Data does not have correct hours per day")    
         
     # generates market trading days / hours / timezones
     def __init__(
@@ -105,7 +105,6 @@ class DateGenerator:
                     
             self.country_contract = country_contract
                     
-            
         self.contract_count = sum(list(self.country_contract.values()))
         
         # ensure year passed through is type int
@@ -119,7 +118,7 @@ class DateGenerator:
             day = self.end_date.day)
         
         if self.verbose == True:
-            print("Generating {} Contracts\nfor {} years\nstart date: {}\nend date: {}".format(
+            print("Generating {} contracts\n{} year lookback\nstart date: {}\nend date: {}".format(
                 self.country_contract,
                 year_lookback,
                 self.start_date,
@@ -153,7 +152,9 @@ class DateGenerator:
             assign(
                 zone = lambda x: x.contract_name.str.translate(translation_table),
                 utc_time = lambda x: x.utc_time.dt.tz_localize("UTC"),
-                nyc_time = lambda x: x.utc_time.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d %H:%M")))
+                nyc_time = lambda x: x.utc_time.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d %H:%M")).
+            groupby(["contract_name", "nyc_time"]).
+            head(1))
         
         if self.verbose == True: print("Adding Time Zone changes")
         
@@ -247,11 +248,7 @@ class DateGenerator:
         
         if self.verbose == True: print("File Written to", self.file_out)
 
-data_generator = DateGenerator()
-
-'''
 if __name__ == "__main__":
 
     date_generator = DateGenerator()
     date_generator.save_data()
-'''

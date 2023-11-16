@@ -33,11 +33,20 @@ class PriceGenerator:
     # function to add in roll price (via rtn) of first minute of the day
     def _find_first_trade_bar(self, df: pd.DataFrame) -> pd.DataFrame:
         return(df.query("local_time == local_time.min()"))
+    
+    def _add_contract_name(self, df: pd.DataFrame) -> pd.DataFrame:
+        
+        contract_count = len(df)
+        contract = self.df_roll_add.contract_name.drop_duplicates()
+        contract_specific = ["{}{}".format(contract, i + 2) for i in range(contract_count)]
+        df_out = df.assign(specific_contract = contract_specific)
+        
+        return df_out
         
     def __init__(
             self,
-            scale: float = 0.002,
-            loc: float = 0.001):
+            scale: float = 0.0002,
+            loc: float = 0.000003):
         
         np.random.seed(123)
         
@@ -56,7 +65,9 @@ class PriceGenerator:
             rtn = self.rand_rtns,
             rtn_mod = lambda x: np.where(x.market_hour == "closed", 0, x.rtn)).
         drop(columns = ["rtn"]).
-        rename(columns = {"rtn_mod": "rtn"}))
+        rename(columns = {"rtn_mod": "rtn"}).
+        groupby(["contract_name", "nyc_time"]).
+        head(1))
         
         # get contract data and generate random start prices
         self.contract_names = self.df_rtn["contract_name"].drop_duplicates().to_list()
@@ -94,12 +105,19 @@ class PriceGenerator:
         self.curve_roll[self.curve_roll == 0] = -1
         self.curve_roll = self.curve_roll * 2 / 100
         
+        # add roll
         self.df_roll_add = (self.df_roll.assign(
             roll = self.curve_roll,
             rtn = lambda x: x.rtn + x.roll).
             drop(columns = ["roll"]).
             assign(zone_local_locater = lambda x: x.zone + " " + x.local_time.dt.strftime("%Y-%m-%d %H:%M")))
         
+        # since we roll onto a new contract we need to add the name
+        self.df_roll_name = (self.df_roll_add.groupby([
+            "contract"]).
+            apply(self._add_contract_name))
+        
+        '''
         self.roll_specific_datetimes = self.df_roll_add.zone_local_locater.to_list()
         
         self.df_non_roll = (self.df_start.assign(
@@ -107,7 +125,23 @@ class PriceGenerator:
             query("zone_local_locater != @self.roll_specific_datetimes"))
         
         self.df_combined = (pd.concat(
-            [self.df_roll_add, self.df_non_roll]))
+            [self.df_roll_add, self.df_non_roll]).
+            drop(columns = ["zone_local_locater"]).
+            rename(columns = {"contract_name": "contract"}).
+            assign(contract_name = lambda x: x.contract + "_" + x.quarter.astype(str)))
+        '''
         
-price_generator = PriceGenerator()
-df_tmp = price_generator.df_combined
+generator = PriceGenerator()
+
+'''
+import matplotlib.pyplot as plt
+
+nyc_tmp = (df_tmp.query(
+    "contract == 'NYC1'").
+    assign(cum_rtn = lambda x: (np.cumprod(1 + x.rtn) - 1)).
+    set_index("local_time"))
+
+fig, ax = plt.subplots(figsize=(10, 6))
+for contract_name, group in nyc_tmp.groupby('contract_name'): 
+    group.plot(x='date', y='rtn', label=contract_name, ax=ax)
+'''

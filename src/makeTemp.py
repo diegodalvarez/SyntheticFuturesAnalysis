@@ -33,16 +33,6 @@ def main():
     df_cut.to_parquet(path = cut_parquet, engine = "pyarrow")
     df_cut.to_csv(path_or_buf = cut_csv)
 
-parent_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-data_path = os.path.join(parent_path, "data")
-date_path = os.path.join(data_path, "date.parquet")
-cut_parquet = os.path.join(data_path, "cut.parquet")
-cut_csv = os.path.join(data_path, "cut.csv")
 
-df_tmp = pd.read_parquet(path = date_path, engine = "pyarrow")
-
-'''
 if __name__ == "__main__":
-    
     main()
-'''
