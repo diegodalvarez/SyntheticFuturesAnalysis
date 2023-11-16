@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-
 #cols = [date, country, future, open, high, low, close, buy vol, sell vol]
 
 class DataGenerator:
@@ -18,12 +17,57 @@ class DataGenerator:
     def _gen_rand_holidays(self, df: pd.DataFrame) -> pd.DataFrame:
         
         df_shuffled = df.sample(frac = 1)
-        df_market_open = df_shuffled.iloc[:250].assign(market_day = "weekday")
-        df_market_holiday = df_shuffled.iloc[250:].assign(market_day = "holiday")
+        df_market_open = df_shuffled.head(250).assign(market_day = "open")
+        good_dates = df_market_open.date.drop_duplicates().to_list()
+        df_market_holiday = df_shuffled.query("date != @good_dates").assign(market_day = "holiday")
         
         df_out = pd.concat([df_market_open, df_market_holiday])
         return df_out
     
+    # function to check that we have 250 trading days
+    def _check_days_count(self):
+        
+        bad_data = (self.df_market.query(
+            "market_day == 'open'")
+            [["contract_name", "local_time"]].
+            assign(
+                date = lambda x: x.local_time.dt.strftime("%Y-%m-%d"), 
+                year = lambda x: x.local_time.dt.year).
+            drop(columns = ["local_time"]).
+            drop_duplicates().
+            groupby(["contract_name", "year"]).
+            agg("count")
+            ["date"].
+            reset_index().
+            query("date != 250"))
+        
+        if len(bad_data) == 0:
+            if self.verbose == True: print("Data has correct days per year")
+        else: 
+            if self.verbose == True: print("Data does not have correct days per year")
+
+    def _check_hours_count(self):
+    
+        bad_data = (self.df_market.query(
+            "market_hour == 'open'")
+            [["contract_name", "local_time"]].
+            assign(
+                date_hour = lambda x: x.local_time.dt.strftime("%Y-%m-%d %H"), 
+                date = lambda x: x.local_time.dt.strftime("%Y-%m-%d")).
+            drop(columns = ["local_time"]).
+            drop_duplicates().
+            groupby(["contract_name", "date"]).
+            agg("count")
+            ["date_hour"].
+            reset_index().
+            query("date_hour != 20"))
+        
+        if len(bad_data) == 0: 
+            if self.verbose == True: print("Data has correct hours per day")
+            
+        else: 
+            if self.verbose == True: print("Data does not have correct hours per day")
+        
     # generates market trading days / hours / timezones
     def __init__(
             self, 
@@ -34,6 +78,8 @@ class DataGenerator:
         
         self.seed = 1234
         np.random.seed(self.seed)
+        
+        self.verbose = True
         
         self.country_contract = {
             "NYC": 5,
@@ -106,30 +152,67 @@ class DataGenerator:
                 Tokyo = lambda x: x.utc_time.dt.tz_convert("Asia/Tokyo").dt.strftime("%Y-%m-%d %H:%M")).
             melt(id_vars = "utc_time", var_name = "zone", value_name = "local_time"))
         
+        # tz_convert will occassionaly bring in some date times from previous years when switching UTC to a
+        # specific datetime
+        max_year = self.start_date.year
+        
         # merge time zones to get local times check for weekends and add in holidays
-        self.df_date_merge = (self.df_time.merge(
+        self.df_date_combined = (self.df_time.merge(
             right = self.df_timezones_add, how = "inner", on = ["utc_time", "zone"]).
             drop(columns = ["utc_time"]).
             assign(
                 nyc_time = lambda x: pd.to_datetime(x.nyc_time),
                 local_time = lambda x: pd.to_datetime(x.local_time),
                 weekday = lambda x: x.local_time.dt.weekday,
-                date = lambda x: pd.to_datetime(x.local_time.dt.strftime("%Y-%m-%d"))))
+                date = lambda x: pd.to_datetime(x.local_time.dt.strftime("%Y-%m-%d")),
+                year = lambda x: x.date.dt.year).
+            query("year > @max_year").
+            drop(columns = ["year"]))
         
-        self.df_holiday = (self.df_date_merge[
+        # create mask-like dataframe to join back with holiday and open market days
+        self.df_holiday = (self.df_date_combined[
             ["zone", "date"]].
             drop_duplicates().
             assign(
                 year = lambda x: x.date.dt.year,
                 weekday = lambda x: x.date.dt.weekday).
             query("weekday != [5,6]").
-            groupby("year").
+            groupby(["zone", "year"]).
             apply(self._gen_rand_holidays).
             reset_index(drop = True).
-            sort_values("date"))
+            sort_values("date").
+            drop(columns = ["year"]))
+        
+        # join back holidays on date and fillna with closed since its a weekend
+        self.df_open = (self.df_date_combined.merge(
+            right = self.df_holiday,
+            how = "outer", 
+            on = ["date", "weekday", "zone"]).
+            assign(
+                market_day = lambda x: x.market_day.fillna("closed"),
+                hour = lambda x: x.local_time.dt.hour))
+        
+        # put market hours in 
+        # preferably use assign but since _ror is not accepted with np.where
+        # slice dataframe by hour and concat
+        closed_hours = [17, 18, 19, 20]
+        
+        # we can get our specific market hours
+        self.df_hour_open = (self.df_open.query(
+            "market_day == 'open' & hour != @closed_hours").
+            assign(market_hour = "open"))
+        
+        # then join then back to the original data and fillna as closed
+        self.df_market = (self.df_open.merge(
+            right = self.df_hour_open,
+            how = "outer",
+            on = self.df_open.columns.to_list()).
+            assign(market_hour = lambda x: x.market_hour.fillna("closed")).
+            drop(columns = ["hour"]))
+        
+        self._check_days_count()
+        self._check_hours_count()
         
 data_generator = DataGenerator(
     country_contract = {"NYC": 1, "Chicago": 1, "London": 1, "Tokyo": 1},
-    year_lookback = 2)
-df_holiday = data_generator.df_holiday
-df_date_merge = data_generator.df_date_merge
+    year_lookback = 10)
