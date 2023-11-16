@@ -11,6 +11,9 @@ import pandas as pd
 
 class PriceGenerator:
     
+    def _find_quarterly_roll(self, df: pd.DataFrame) -> pd.DataFrame:
+        print(df.query("month == min(month)"))
+    
     def __init__(
             self,
             scale: float = 0.002,
@@ -42,6 +45,16 @@ class PriceGenerator:
         self.df_start = (self.df_rtn.merge(
             right = self.start_price, how = "inner", on = ["contract_name"]).
             assign(quarter = lambda x: pd.PeriodIndex(x.local_time, freq = "Q")))
+        
+        self.df_roll = (self.df_start[
+            ["zone", "date", "quarter", "weekday"]].
+            assign(
+                month = lambda x: x.date.dt.month,
+                day = lambda x: x.date.dt.day).
+            drop_duplicates().
+            query("zone == 'NYC'").
+            groupby(["zone", "quarter"]).
+            apply(self._find_quarterly_roll))
         
 price_generator = PriceGenerator()
 df_start = price_generator.df_start
