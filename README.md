@@ -25,6 +25,3 @@ contracts get generic names based on the country that is passed through followin
 
 ### Holidays
 Rather than accounting for specific holidays across market hours and the chance that market holidays may occur on weekends. Since the specific questions were 250 trading days, the following method will be used: Respective for the market's local time, there are (260 to 261) weekdays that are eligible candidates as trading days. The weekdays will be randomized and the first 250 will be considered trading days the remaining days (not including weekends) will be considered holidays. Unfortunately since there is no gaurantee that the holiday will land on a weekday in the following years every week the holidays change every year. This is to fit in accordance with the 250 day rule.
-
-### Dates & Timezones
-Since dates are localized to NYC hours, there are a couple of hours which have duplicates times. This occurs since daylight savings occurs per NYC time zone. The code handles this by putting duplicate prices. For example daylight savings occurs on Nov 3rd 2013 for NYC hours thus all of the other dates will have duplicates times. The duplicates stay within DateGenerator, but are fixed in PriceGenerator its done via adding 0% return for those hours. This could be avoided if dates were not localized to NYC hours, but localizing is a requirement. 
