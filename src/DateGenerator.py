@@ -82,10 +82,11 @@ class DateGenerator:
         self.verbose = verbose
         
         self.country_contract = {
-            "NYC": 5,
-            "Chicago": 4,
-            "London": 3,
-            "Tokyo": 3}
+            "NYC": 1,
+            "Chicago": 1,
+            "London": 1,
+            "Tokyo": 1,
+            "Frankfurt": 1}
         
         # when contract gets passed through just ensure it meets correct formatting
         if country_contract != None:
@@ -93,7 +94,7 @@ class DateGenerator:
             for country, num in country_contract.items(): 
                 
                 if country not in list(self.country_contract.keys()): 
-                    raise ValueError("Only accepting NYC, Chicago, London, Tokyo contracts")
+                    raise ValueError("Only accepting NYC, Chicago, London, Tokyo, or Frankfurt contracts")
                     
                 if type(num) != int:
                     raise TypeError("Only accepting int for contract count")
@@ -112,6 +113,13 @@ class DateGenerator:
             year = self.end_date.year - year_lookback, 
             month = self.end_date.month,
             day = self.end_date.day)
+        
+        if self.verbose == True:
+            print("Generating {} Contracts\nfor {} years\nstart date: {}\nend date: {}".format(
+                self.country_contract,
+                year_lookback,
+                self.start_date,
+                self.end_date))
         
         self.dates = [
             self.start_date + dt.timedelta(minutes=x) for x in range(
@@ -154,12 +162,14 @@ class DateGenerator:
                 NYC = lambda x: x.utc_time.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d %H:%M"),
                 Chicago = lambda x: x.utc_time.dt.tz_convert("America/Chicago").dt.strftime("%Y-%m-%d %H:%M"),
                 London = lambda x: x.utc_time.dt.tz_convert("Europe/London").dt.strftime("%Y-%m-%d %H:%M"),
-                Tokyo = lambda x: x.utc_time.dt.tz_convert("Asia/Tokyo").dt.strftime("%Y-%m-%d %H:%M")).
+                Tokyo = lambda x: x.utc_time.dt.tz_convert("Asia/Tokyo").dt.strftime("%Y-%m-%d %H:%M"),
+                Frankfurt = lambda x: x.utc_time.dt.tz_convert("Europe/Berlin").dt.strftime("%Y-%m-%d %H:%M")).
             melt(id_vars = "utc_time", var_name = "zone", value_name = "local_time"))
         
         # tz_convert will occassionaly bring in some date times from previous years when switching UTC to a
         # specific datetime
-        max_year = self.start_date.year
+        min_year = self.start_date.year
+        max_year = self.end_date.year
         
         # merge time zones to get local times check for weekends and add in holidays
         self.df_date_combined = (self.df_time.merge(
@@ -171,7 +181,7 @@ class DateGenerator:
                 weekday = lambda x: x.local_time.dt.weekday,
                 date = lambda x: pd.to_datetime(x.local_time.dt.strftime("%Y-%m-%d")),
                 year = lambda x: x.date.dt.year).
-            query("year > @max_year").
+            query("year >= @min_year & year < @max_year").
             drop(columns = ["year"]))
         
         if self.verbose == True: print("Adding Holidays")
