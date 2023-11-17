@@ -1,6 +1,7 @@
-# Futures
+# Futures Synthetic Price Generation & Analysis
 Futures Project
 
+## Dependencies & Codebase
 For ease of use the notebook only uses ```pandas``` ```numpy``` and ```matplotlib``` with no other packages. A majority of the code if not all is written in fully vectorized pandas thus using minimal amount of for loops and relying on ```pd.groupby``` ```pd.agg``` ```pd.pivot``` ```pd.query``` and ```pd.melt```. The two main data generation files ```DateGenerator.py``` and ```PriceGenerator.py``` are fully OOP and upon instantiation of object they generate the data. Date is saved within ```.parquet``` to conserve space and data is preserved in longer format, although sample data is saved as ```.csv```. 
 
 # Repo layout
