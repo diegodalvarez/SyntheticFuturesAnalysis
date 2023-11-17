@@ -18,9 +18,9 @@ Futures Project
 ```
 
 src files:
-* ```DateGenerator.py```: Creates data frame mask for specific contracts. When object is instantiated it defaults to required futures contract but can take an arbitrary number of contracts. Upon initialization the object makes a dataframe with correct open market days & hours. There are also functions within code to ensure that there are right number of days per year and hours per day (```_check_days_count``` and ```check_hours_count``` respectively). File outputs ```dates.parquet```.
+* ```DateGenerator.py```: Creates data frame mask for specific contracts. When object is instantiated it defaults to required futures contract but can take an arbitrary number of contracts. Upon initialization the object makes a dataframe with correct open market days & hours. There are also functions within code to ensure that there are right number of days per year and hours per day (```_check_days_count()``` and ```_check_hours_count()``` respectively). File outputs ```dates.parquet```.
 * ```PriceGenerator.py```: Creates synthetic price time series data built on top of output from ```DateGenerator.py``` using ```dates.parquet```. Synthetic time series includes price roll which is assumed to be the 15th of the first month of the quarter (if weekend or holiday then following trading day). Upon instantiation of object the code creates the time series. There is also a helper function to ensure that OHLC relationship is preserved (```_check_ohlc```). File output ```prices.parquet```
-* ```makeData.py```: Creates each object and uses method ```save_data()``` within ```DateGenerator.py``` and ```PriceGenerator.py```. Then runs ```make_sample``` function which gets the last 3 years of the ```prices.parquet``` dataset and saves to file as parquet and csv. 
+* ```makeData.py```: Creates each object and uses method ```save_data()``` within ```DateGenerator.py``` and ```PriceGenerator.py```. Then runs ```make_sample()``` function which gets the last 3 years of the ```prices.parquet``` dataset and saves to file as ```prices_sample.parquet``` and ```prices_sample.csv```. 
 
 data files
 * ```dates.parquet```: DataFrame mask for price series containing all contracts, all 5 min bars, with correct market open days and hours. Output from ```__init__``` function of ```DateGenerator.py```.
