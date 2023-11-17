@@ -20,6 +20,7 @@ For ease of use the notebook only uses ```pandas``` ```numpy``` and ```matplotli
           │   prices_samples.parquet
           │   prices_samples.csv
 ```
+```data``` directory is not present if repo is created from clone via git to preserve repo space. If repo is cloned ```data``` directory is created and then filled. If repo is sent via ```.zip``` then ```data``` directory is present and filled with files.  
 
 src files:
 * ```DateGenerator.py```: Creates data frame mask for specific contracts. When object is instantiated it defaults to required futures contract but can take an arbitrary number of contracts. Upon initialization the object makes a dataframe with correct open market days & hours. There are also functions within code to ensure that there are right number of days per year and hours per day (```_check_days_count()``` and ```_check_hours_count()``` respectively). File outputs ```dates.parquet```.
