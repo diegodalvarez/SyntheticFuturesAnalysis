@@ -16,15 +16,14 @@ class PriceGenerator:
         
         df_tmp = df.query("month == month.min() & day == 15")
         df_tmp_open = df_tmp.query("market_day == 'open'")
-        df_tmp_closed = df_tmp.query("market_day == 'closed'")
-        
+        df_tmp_closed = df_tmp.query("market_day == ['closed', 'holiday']")
+
         if len(df_tmp_open) != 0:
             return(df_tmp_open)
             
         else:
             
             closed_date = df_tmp_closed.head(1).date.iloc[0]
-
             return(df.sort_values(
                 "date").
                 query("date > @closed_date & market_day == 'open'").
@@ -34,6 +33,32 @@ class PriceGenerator:
     def _find_first_trade_bar(self, df: pd.DataFrame) -> pd.DataFrame:
         return(df.query("local_time == local_time.min()"))
     
+    # checks data to make ohlc is preserved
+    def _check_ohlc(self):
+        
+        open_low_check = len(self.df_ohlc.query("open_price < low_price"))
+        open_high_check = len(self.df_ohlc.query("open_price > high_price"))
+        
+        close_low_check = len(self.df_ohlc.query("close_price < low_price"))
+        close_high_check = len(self.df_ohlc.query("close_price > high_price"))
+        
+        low_high_check = len(self.df_ohlc.query("low_price > high_price"))
+        
+        if open_low_check != 0: print("There are open prices lower than low price")
+        if open_high_check  != 0: print("There are open prices higher than high price")
+        if close_low_check != 0: print("There are close prices lower than low price")
+        if close_high_check != 0: print("There are close prices higher than higher price")
+        if low_high_check != 0: print("There are low prices higher than high prices")
+        
+        if (open_low_check == 0 and 
+            open_high_check == 0 and 
+            close_low_check == 0 and 
+            close_high_check == 0 and 
+            low_high_check == 0):
+            
+            print("OHLC data is checked")
+        
+    # add contracts names for they are rolled
     def _add_contract_name(self, df: pd.DataFrame) -> pd.DataFrame:
         
         contract = df.contract_name.drop_duplicates().to_list()[0]
@@ -42,6 +67,7 @@ class PriceGenerator:
         
         return df_out
     
+    # calculate cumulative return
     def _cum_rtn(self, df: pd.DataFrame) -> pd.DataFrame:
         
         return(df.sort_values(
@@ -52,19 +78,23 @@ class PriceGenerator:
     def __init__(
             self,
             scale: float = 0.0002,
-            loc: float = 0.000003):
+            loc: float = 0.000003,
+            verbose = True):
         
         np.random.seed(123)
+        self.verbose = True
         
         # path management
         self.parent_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
         self.data_path = os.path.join(self.parent_path, "data")
-        self.file_path = os.path.join(self.data_path, "cut.parquet")
+        self.file_path = os.path.join(self.data_path, "date.parquet")
         
         self.df_date = pd.read_parquet(path = self.file_path, engine = "pyarrow")
         
         # generate random data will append it and then when market is close set it to 0
         self.rand_rtns = np.random.normal(loc = loc, scale = scale, size = len(self.df_date))
+        
+        if self.verbose == True: print("Adding in Random Returns")
         
         # add returns and 0 out when market is closed ideally would merge but very expensive
         self.df_rtn = (self.df_date.assign(
@@ -74,6 +104,8 @@ class PriceGenerator:
         rename(columns = {"rtn_mod": "rtn"}).
         groupby(["contract_name", "nyc_time"]).
         head(1))
+        
+        if self.verbose == True: print("Initializing Price Data")
         
         # get contract data and generate random start prices
         self.contract_names = self.df_rtn["contract_name"].drop_duplicates().to_list()
@@ -86,6 +118,8 @@ class PriceGenerator:
         self.df_start = (self.df_rtn.merge(
             right = self.start_price, how = "inner", on = ["contract_name"]).
             assign(quarter = lambda x: pd.PeriodIndex(x.local_time, freq = "Q")))
+        
+        if self.verbose == True: print("Finding roll dates")
         
         # this finds the days and specific minutes for the roles
         self.df_roll = (self.df_start[
@@ -111,6 +145,8 @@ class PriceGenerator:
         self.curve_roll[self.curve_roll == 0] = -1
         self.curve_roll = self.curve_roll * 2 / 100
         
+        if self.verbose == True: print("Rolling Contracts")
+        
         # add roll
         self.df_roll_add = (self.df_roll.assign(
             roll = self.curve_roll,
@@ -133,6 +169,8 @@ class PriceGenerator:
             groupby(["contract_name", "nyc_time"]).
             head(1))
         
+        if self.verbose == True: print("Calculating Cumulative Return to back out time series")
+        
         # now calculate the cumulative returns as a multiplier for price per each contract
         self.df_cumprod = (self.df_combined.groupby([
             "contract_name"]).
@@ -147,6 +185,10 @@ class PriceGenerator:
         self.close_add = self.high_add + self.low_add + np.random.normal(
             loc = 0.0, scale = 0.0000001, size = len(self.df_cumprod))
         
+        if self.verbose == True: print("Adding OHLC Data to time series")
+        
+        # create OHLC data, the random normal data gets put in furst and then zereod out for when markets
+        # are closed
         self.df_ohlc = (self.df_cumprod.assign(
             high_add = self.high_add,
             low_add = self.low_add,
@@ -160,19 +202,28 @@ class PriceGenerator:
                 high_price = lambda x: x.open_price + x.high_add,
                 low_price = lambda x: x.open_price + x.low_add,
                 close_price = lambda x: x.open_price + x.close_add).
-            drop(columns = ["high_add", "low_add", "close_add"]))
+            drop(columns = ["high_add", "low_add", "close_add"]).
+            groupby(["contract", "local_time"]).
+            head(1))
+                
+        vol_count = len(self.df_ohlc)
+        buy_vol = np.round(np.random.normal(loc = 1_000_000, scale = 300_000, num = vol_count))
+        sell_vol = np.round(np.random.normal())
+                
+        if self.verbose == True: print("Checking OHLC relationship is preserved")
+        self._check_ohlc()
         
-generator = PriceGenerator()
-
+    def save_data(self):
+        
+        if os.path.exists(self.data_path) == False: os.makedirs(self.data_path)
+        self.file_out = os.path.join(self.data_path, "prices.parquet")
+        self.df_ohlc.to_parquet(path = self.file_out, engine = "pyarrow")
+        
+        if self.verbose == True: print("File Written to", self.file_out)
+    
 '''
-import matplotlib.pyplot as plt
+if __name__ == "__main__":        
 
-nyc_tmp = (df_tmp.query(
-    "contract == 'NYC1'").
-    assign(cum_rtn = lambda x: (np.cumprod(1 + x.rtn) - 1)).
-    set_index("local_time"))
-
-fig, ax = plt.subplots(figsize=(10, 6))
-for contract_name, group in nyc_tmp.groupby('contract_name'): 
-    group.plot(x='date', y='rtn', label=contract_name, ax=ax)
+    generator = PriceGenerator()
+    generator.save_data()
 '''
