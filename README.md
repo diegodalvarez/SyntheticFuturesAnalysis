@@ -23,8 +23,8 @@ src files:
 * ```makeData.py```: Creates each object and uses method ```save_data()``` within ```DateGenerator.py``` and ```PriceGenerator.py```. Then runs ```make_sample()``` function which gets the last 3 years of the ```prices.parquet``` dataset and saves to file as ```prices_sample.parquet``` and ```prices_sample.csv```. 
 
 data files
-* ```dates.parquet```: DataFrame mask for price series containing all contracts, all 5 min bars, with correct market open days and hours. Output from ```__init__``` function of ```DateGenerator.py```.
-* ```prices.parquet```: Synthetic price time series OHLC containing all contracts, accounting for change in contract (roll). Output from ```__init__``` function of ```PriceGenerator.py```
+* ```dates.parquet```: DataFrame mask for price series containing all contracts, all 5 min bars, with correct market open days and hours. Output from ```__init__()``` function of ```DateGenerator.py```.
+* ```prices.parquet```: Synthetic price time series OHLC containing all contracts, accounting for change in contract (roll). Output from ```__init__()``` function of ```PriceGenerator.py```
 
 notebook files
 * ```analysis.ipynb```: Jupyter Notebook to run the calculations required. 
