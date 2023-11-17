@@ -81,3 +81,6 @@ Roll is done quarterly by the first 15th of the first month of each quarter. If 
 This is done by sampling from normal distribution with average ```1,000,000``` with +- ```300,000```
 ### OHLC creation and preservation
 Once time series have been backed out through cumulative returns multiplied to starting price its considered to be ```Open Price```. To simulate low, high, and close price sample from normal distribution to get synthetic dollar price move. To ensure OHLC relationship is preserved take the absolute value and random normals and multiply by 1 and -1 respectively to get high and low. Close price is sampled from normal distribution with extremely small standard deviation and then added to close. There is a chance (extremely likely) that the dollar price change for close price is higher or lower than the high price and low price its yet to occur. Also the method ```_check_ohlc()``` ensures that the relationship is preserved.
+
+Sample OHLC bars for a random day
+![image](https://github.com/diegodalvarez/Futures/assets/48641554/0304fd13-ec40-4741-b14a-3a3a1cd8eafb)
