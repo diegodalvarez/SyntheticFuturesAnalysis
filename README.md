@@ -72,6 +72,7 @@ Prices are created by sampling normal distribution to act as return. Rather than
 
 ### Roll
 Roll is done quarterly by the first 15th of the first month of each quarter. If the 15th is closed (weekend or holiday) it moves to the following open day. To account for roll cost an extra +-2% is added to the curve. The 2% gets added to the synthetic return data and is assumed to be rolled on the first bar or the trade open. Backwardation and contango are assumed to appear in equal proportions implying that on roll day there is a 50-50 chance that cost may be +-2%. This is done by sampling binomial distribution replacing 0s with -1s multiplying by 2 and scaling for percentage. 
+![image](https://github.com/diegodalvarez/Futures/assets/48641554/2546c8f1-2229-49fa-a0e8-39c66ee49cea)
 
 ### Buy and Sell Volume Generation
 This is done by sampling from normal distribution with average ```1,000,000``` with +- ```300,000```
