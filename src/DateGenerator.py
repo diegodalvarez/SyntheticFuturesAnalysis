@@ -49,7 +49,7 @@ class DateGenerator:
     
         # due to using year end and international times there are some days 
         # with less than a full trading day which needs to be accounted for
-        first_date = self.df_market.date.min().date().strftime("%Y-%m-%d")
+        first_date = self.df_market.local_time.min().date().strftime("%Y-%m-%d")
     
         bad_data = (self.df_market.query(
             "market_hour == 'open'")
@@ -231,8 +231,7 @@ class DateGenerator:
             right = self.df_hour_open,
             how = "outer",
             on = self.df_open.columns.to_list()).
-            assign(market_hour = lambda x: x.market_hour.fillna("closed")).
-            drop(columns = ["hour"]))
+            assign(market_hour = lambda x: x.market_hour.fillna("closed")))
         
         self._check_days_count()
         self._check_hours_count()

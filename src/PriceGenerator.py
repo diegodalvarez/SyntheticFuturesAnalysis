@@ -36,13 +36,13 @@ class PriceGenerator:
     # checks data to make ohlc is preserved
     def _check_ohlc(self):
         
-        open_low_check = len(self.df_ohlc.query("open_price < low_price"))
-        open_high_check = len(self.df_ohlc.query("open_price > high_price"))
+        open_low_check = len(self.df_vol.query("open_price < low_price"))
+        open_high_check = len(self.df_vol.query("open_price > high_price"))
         
-        close_low_check = len(self.df_ohlc.query("close_price < low_price"))
-        close_high_check = len(self.df_ohlc.query("close_price > high_price"))
+        close_low_check = len(self.df_vol.query("close_price < low_price"))
+        close_high_check = len(self.df_vol.query("close_price > high_price"))
         
-        low_high_check = len(self.df_ohlc.query("low_price > high_price"))
+        low_high_check = len(self.df_vol.query("low_price > high_price"))
         
         if open_low_check != 0: print("There are open prices lower than low price")
         if open_high_check  != 0: print("There are open prices higher than high price")
@@ -207,8 +207,16 @@ class PriceGenerator:
             head(1))
                 
         vol_count = len(self.df_ohlc)
-        buy_vol = np.round(np.random.normal(loc = 1_000_000, scale = 300_000, num = vol_count))
-        sell_vol = np.round(np.random.normal())
+        buy_vol = np.round(np.random.normal(loc = 1_000_000, scale = 300_000, size = vol_count))
+        sell_vol = np.round(np.random.normal(loc = 1_000_000, scale = 300_000, size = vol_count))
+        
+        self.df_vol = (self.df_ohlc.assign(
+            buy_vol = buy_vol,
+            sell_vol = sell_vol).
+            assign(
+                buy_vol = lambda x: np.where(x.market_hour == "closed", 0, x.buy_vol),
+                sell_vol = lambda x: np.where(x.market_hour == "closed", 0, x.sell_vol)).
+            drop(columns = ["date"]))
                 
         if self.verbose == True: print("Checking OHLC relationship is preserved")
         self._check_ohlc()
@@ -217,13 +225,11 @@ class PriceGenerator:
         
         if os.path.exists(self.data_path) == False: os.makedirs(self.data_path)
         self.file_out = os.path.join(self.data_path, "prices.parquet")
-        self.df_ohlc.to_parquet(path = self.file_out, engine = "pyarrow")
+        self.df_vol.to_parquet(path = self.file_out, engine = "pyarrow")
         
         if self.verbose == True: print("File Written to", self.file_out)
-    
-'''
+
 if __name__ == "__main__":        
 
     generator = PriceGenerator()
     generator.save_data()
-'''
