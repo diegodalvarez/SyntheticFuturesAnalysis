@@ -29,7 +29,7 @@ data files
 notebook files
 * ```analysis.ipynb```: Jupyter Notebook to run the calculations required. 
 
-# Data Generation
+# Data Generation 
 
 ### Project Requirements
 1. 5 min OHLC of 10y worth of data
@@ -39,7 +39,7 @@ notebook files
 5. Market hours are 9pm to 5pm the following days
 6. Once data is simulated calculate the following
 
-## Date Generation
+## Date Generation (```DateGenerator.py```)
 ### Functionality
 Upon initialization of the DataGenerator object most of the parameters can be modified although they are defaulted upon initialiation. Arguments are defaulted as 
 1. country_contract: type dictionary for modified the number of contracts per each country
@@ -53,9 +53,9 @@ contracts get generic names based on the country that is passed through followin
 ### Holidays
 Rather than accounting for specific holidays across market hours and the chance that market holidays may occur on weekends. Since the specific questions were 250 trading days, the following method will be used: Respective for the market's local time, there are (260 to 261) weekdays that are eligible candidates as trading days. The weekdays will be randomized and the first 250 will be considered trading days the remaining days (not including weekends) will be considered holidays. Unfortunately since there is no gaurantee that the holiday will land on a weekday in the following years every week the holidays change every year. This is to fit in accordance with the 250 day rule.
 
-## Time Sereies generations
+## Time Series generations (```PriceGenerator.py```)
 ### Price creation
-Prices are created by sample normally distributed values to act as return. Rather additively adding values and trying to account for role, return prices are simulated and then cumulative multiplied to get a series back out. Starting values are sampled normally with mean $1,000 +- $30. Using cumulative returns and multiplying by a starting price makes the time series look more akin to financial time series. Although random seed is set returns get zeroed out if market is open therefore when calculations are done, returns can't be "backed-out" by using the same random seed. 
+Prices are created by sampling normal distributed to act as return. Rather than recursively summing values and trying to account for role, return prices are simulated and then cumulative multiplied to back a time series out. Starting price values are sampled normally with mean $1,000 +- $30. Using cumulative returns and multiplying by a starting price makes the time series look more akin to financial time series. Although random seed is set returns get zeroed out if market is closed therefore when calculations are done, returns can't be "backed-out" by using the same random seed. 
 
 ### Roll
-Roll is done quarterly by the first 15th of the first month of each quarter. If the 15th is closed (weekend or holiday) it moves to the following open day. To account for roll cost an extra +-2% is added to the curve. In this case backwardation and contango are assumed to show up in even proportions leading to an equal amount of positive and negative roll. This done by binomial sampling and adding returns
+Roll is done quarterly by the first 15th of the first month of each quarter. If the 15th is closed (weekend or holiday) it moves to the following open day. To account for roll cost an extra +-2% is added to the curve. The 2% gets added to the synthetic return data and is assumed to be rolled on the first bar or the trade open. Backwardation and contango are assumed to appear in equal proportions implying that on roll day there is a 50-50 chance that cost may be +-2%. This is done by sampling binomial distribution replacing 0s with -1s multiplying by 2 and scaling for percentage. 
