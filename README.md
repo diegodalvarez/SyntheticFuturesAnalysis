@@ -66,7 +66,7 @@ Once the object has been fully initialzied it is only prepped with dates and has
 ### Holidays
 Rather than accounting for specific holidays across market hours and the chance that market holidays may occur on weekends. Since the specific questions were 250 trading days, the following method will be used: Respective for the market's local time, there are (260 to 261) weekdays that are eligible candidates as trading days. The weekdays will be randomized and the first 250 will be considered trading days the remaining days (not including weekends) will be considered holidays. Unfortunately since there is no gaurantee that the holiday will land on a weekday in the following years every week the holidays change every year. This is to fit in accordance with the 250 day rule.
 
-Example of market trading days. Green: open, Blue: closed (weekend), red: closed (holiday). 
+Example of market trading days. Green: open, Blue: closed (weekend), red: closed (holiday) localized to local time. 
 ![image](https://github.com/diegodalvarez/Futures/assets/48641554/ecbb3cd0-1788-421e-a36f-7097642154d5)
 
 ## Time Series generation (```PriceGenerator.py```)
