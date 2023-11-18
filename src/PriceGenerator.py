@@ -64,7 +64,6 @@ class PriceGenerator:
         contract = df.contract_name.drop_duplicates().to_list()[0]
         contract_spec = ["{}_{}".format(contract, i + 2) for i in range(len(df))]
         df_out = df.assign(contract = contract_spec)
-        
         return df_out
     
     # calculate cumulative return
@@ -82,7 +81,7 @@ class PriceGenerator:
             verbose = True):
         
         np.random.seed(123)
-        self.verbose = True
+        self.verbose = verbose
         
         # path management
         self.parent_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
@@ -156,14 +155,12 @@ class PriceGenerator:
         # since we roll onto a new contract we need to add the name
         self.df_roll_name = (self.df_roll_add.groupby([
             "contract_name"]).
-            apply(self._add_contract_name))
+            apply(self._add_contract_name).
+            drop(columns = ["quarter"]))
         
-        # combine the roll changes and add in the names of the contract
-        self.df_combined = (self.df_roll_name.merge(
-            right = self.df_start,
-            how = "outer",
-            on = self.df_start.columns.to_list()).
-            sort_values(["contract_name", "nyc_time"]).
+        self.df_combined = (self.df_start.merge(
+            right = self.df_roll_name, how = "outer").
+            drop(columns = "quarter").
             fillna(method = "ffill").
             assign(contract = lambda x: x.contract.fillna(x.contract_name + "_1")).
             groupby(["contract_name", "nyc_time"]).
@@ -228,6 +225,7 @@ class PriceGenerator:
         self.df_vol.to_parquet(path = self.file_out, engine = "pyarrow")
         
         if self.verbose == True: print("File Written to", self.file_out)
+
 
 if __name__ == "__main__":        
 
