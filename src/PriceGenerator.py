@@ -59,12 +59,14 @@ class PriceGenerator:
             print("OHLC data is checked")
         
     # add contracts names for they are rolled
+    # start on second contract then ffill forward then the remaining contracts are 
+    # contract1 respecitively which will be defined after the merge and ffill
     def _add_contract_name(self, df: pd.DataFrame) -> pd.DataFrame:
-        
-        contract = df.contract_name.drop_duplicates().to_list()[0]
-        contract_spec = ["{}_{}".format(contract, i + 2) for i in range(len(df))]
-        df_out = df.assign(contract = contract_spec)
-        return df_out
+      
+        return(df.assign(
+            tmp = [i + 2 for i in range(len(df))],
+            contract = lambda x: x.contract_name + "_" + x.tmp.astype(str)).
+            drop(columns = ["tmp"]))
     
     # calculate cumulative return
     def _cum_rtn(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -73,6 +75,9 @@ class PriceGenerator:
             "nyc_time").
             assign(
                 open_rtn = lambda x: np.cumprod(1 + x.rtn)))
+    
+    def _get_first_min(self, df: pd.DataFrame) -> pd.DataFrame:
+        return(df.query("local_time == local_time.min()"))
         
     def __init__(
             self,
@@ -88,7 +93,10 @@ class PriceGenerator:
         self.data_path = os.path.join(self.parent_path, "data")
         self.file_path = os.path.join(self.data_path, "date.parquet")
         
-        self.df_date = pd.read_parquet(path = self.file_path, engine = "pyarrow")
+        self.df_date = (pd.read_parquet(
+            path = self.file_path, engine = "pyarrow").
+            groupby(["contract_name", "zone", "local_time", "weekday", "date", "market_day", "hour", "market_hour"]).
+            head(1))
         
         # generate random data will append it and then when market is close set it to 0
         self.rand_rtns = np.random.normal(loc = loc, scale = scale, size = len(self.df_date))
@@ -120,8 +128,8 @@ class PriceGenerator:
         
         if self.verbose == True: print("Finding roll dates")
         
-        # this finds the days and specific minutes for the roles
-        self.df_roll = (self.df_start[
+        # Finds the specific roll dates per time zone
+        self.df_roll_dates = (self.df_start[
             ["zone", "date", "quarter", "weekday", "market_day"]].
             assign(
                 month = lambda x: x.date.dt.month,
@@ -129,42 +137,50 @@ class PriceGenerator:
             drop_duplicates().
             groupby(["zone", "quarter"]).
             apply(self._find_quarterly_roll).
-            drop(columns = ["month", "day"]).
             reset_index(drop = True).
-            merge(right = self.df_start, how = "inner", on = ["zone", "date", "quarter", "weekday", "market_day"]).
-            groupby(["zone", "quarter", "date"]).
-            apply(self._find_first_trade_bar).
-            reset_index(drop = True))
+            drop(columns = ["quarter", "weekday", "market_day", "month", "day"]))
+        
+        # gets the specific contracts per each time zone
+        self.df_zone_contract = (self.df_start[
+            ["contract_name", "zone"]].
+            groupby("contract_name").
+            head(1))
+        
+        # gets the specific roll dates per each contract and specific names
+        self.df_roll_contract = (self.df_zone_contract.merge(
+            right = self.df_roll_dates, how = "outer", on = ["zone"]).
+            groupby(["contract_name"]).
+            apply(self._add_contract_name))
         
         # to simulate roll changes add an additional 2% change to rtn 
         # assuming that the curve trades in contango and backwardation in even proportions
         # initialize a np array of 0s and 1s via binomial replace 0s with -1s multiply by 2
-        # add back to returns
-        self.curve_roll = np.random.binomial(n = 1, p = 0.5, size = len(self.df_roll))
+        self.curve_roll = np.random.binomial(n = 1, p = 0.5, size = len(self.df_roll_contract))
         self.curve_roll[self.curve_roll == 0] = -1
         self.curve_roll = self.curve_roll * 2 / 100
         
         if self.verbose == True: print("Rolling Contracts")
         
-        # add roll
-        self.df_roll_add = (self.df_roll.assign(
-            roll = self.curve_roll,
-            rtn = lambda x: x.rtn + x.roll).
-            drop(columns = ["roll"]))
-        
-        # since we roll onto a new contract we need to add the name
-        self.df_roll_name = (self.df_roll_add.groupby([
-            "contract_name"]).
-            apply(self._add_contract_name).
-            drop(columns = ["quarter"]))
-        
-        self.df_combined = (self.df_start.merge(
-            right = self.df_roll_name, how = "outer").
-            drop(columns = "quarter").
+        # get specific minute bars to apply roll to 
+        self.df_roll_min = (self.df_roll_contract.merge(
+            right = self.df_start, how = "inner", on = ["contract_name", "zone", "date"]).
+            groupby("date").
+            apply(self._get_first_min).
+            reset_index(drop = True).
+            assign(roll = self.curve_roll))
+            
+        # combine together ffill to get contract names then remaining contracts are 1st then add roll in to rtn
+        self.df_combined = (self.df_roll_min.merge(
+            right = self.df_start, 
+            how = "outer", 
+            on = self.df_start.columns.to_list()).
+            assign(roll = lambda x: x.roll.fillna(0)).
+            sort_values(["contract_name", "date"]).
             fillna(method = "ffill").
-            assign(contract = lambda x: x.contract.fillna(x.contract_name + "_1")).
-            groupby(["contract_name", "nyc_time"]).
-            head(1))
+            assign(
+                contract = lambda x: x.contract.fillna(x.contract_name + "_1"),
+                rtn = lambda x: x.rtn + x.roll).
+            drop(columns = ["roll"]))
         
         if self.verbose == True: print("Calculating Cumulative Return to back out time series")
         
@@ -225,7 +241,7 @@ class PriceGenerator:
         self.df_vol.to_parquet(path = self.file_out, engine = "pyarrow")
         
         if self.verbose == True: print("File Written to", self.file_out)
-
+    
 
 if __name__ == "__main__":        
 
