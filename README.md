@@ -72,6 +72,7 @@ Example of market trading days. Green: open, Blue: closed (weekend), red: closed
 ## Time Series generation (```PriceGenerator.py```)
 ### Price creation
 Prices are created by sampling normal distribution to act as return. Rather than recursively summing values and trying to account for roll, return prices are simulated and then cumulative multiplied to back out a time series. Starting price values are sampled normally with mean $1,000 +- $30. Using cumulative returns and multiplying by a starting price makes the time series look more akin to financial time series and allows roll cost to be directly added in before cumulative return. Although random seed is set, returns get zeroed out if market is closed therefore when calculations are done, returns can't be "backed-out" by using the same random seed. 
+![image](https://github.com/diegodalvarez/Futures/assets/48641554/91bf4699-322f-41aa-aed4-e845b646069e)
 
 ### Roll
 Roll is done quarterly by the first 15th of the first month of each quarter. If the 15th is closed (weekend or holiday) it moves to the following open day. To account for roll cost an extra +-2% is added to the curve. The 2% gets added to the synthetic return data and is assumed to be rolled on the first bar or the trade open. Backwardation and contango are assumed to appear in equal proportions implying that on roll day there is a 50-50 chance that cost may be +-2%. This is done by sampling binomial distribution replacing 0s with -1s multiplying by 2 and scaling for percentage. 
