@@ -241,8 +241,7 @@ class PriceGenerator:
         self.df_vol.to_parquet(path = self.file_out, engine = "pyarrow")
         
         if self.verbose == True: print("File Written to", self.file_out)
-    
-
+        
 if __name__ == "__main__":        
 
     generator = PriceGenerator()
