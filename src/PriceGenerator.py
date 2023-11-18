@@ -4,12 +4,18 @@ Created on Thu Nov 16 01:10:19 2023
 
 @author: Diego
 """
-
 import os
 import numpy as np
 import pandas as pd
 
 class PriceGenerator:
+    
+    # fills in names for specifically rolled contracts
+    def _fill(self, df: pd.DataFrame) -> pd.DataFrame:
+        return(df.sort_values(
+            "date").
+            fillna(method = "ffill").
+            assign(contract = lambda x: x.contract.fillna(x.contract_name + "_1")))
     
     # function to find quarterly role
     def _find_quarterly_roll(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -95,7 +101,9 @@ class PriceGenerator:
         
         self.df_date = (pd.read_parquet(
             path = self.file_path, engine = "pyarrow").
-            groupby(["contract_name", "zone", "local_time", "weekday", "date", "market_day", "hour", "market_hour"]).
+            groupby([
+                "contract_name", "zone", "local_time", "weekday", "date", 
+                "market_day", "hour", "market_hour"]).
             head(1))
         
         # generate random data will append it and then when market is close set it to 0
@@ -150,7 +158,8 @@ class PriceGenerator:
         self.df_roll_contract = (self.df_zone_contract.merge(
             right = self.df_roll_dates, how = "outer", on = ["zone"]).
             groupby(["contract_name"]).
-            apply(self._add_contract_name))
+            apply(self._add_contract_name).
+            reset_index(drop = True))
         
         # to simulate roll changes add an additional 2% change to rtn 
         # assuming that the curve trades in contango and backwardation in even proportions
@@ -169,7 +178,21 @@ class PriceGenerator:
             reset_index(drop = True).
             assign(roll = self.curve_roll))
             
-        # combine together ffill to get contract names then remaining contracts are 1st then add roll in to rtn
+        # combine together ffill to get contract names then remaining contracts 
+        # are 1st then add roll in to rtn
+        
+        self.df_combined = (self.df_roll_min.merge(
+            right = self.df_start,
+            how = "outer", 
+            on = self.df_start.columns.to_list()).
+            assign(roll = lambda x: x.roll.fillna(0)).
+            groupby("contract_name").
+            apply(self._fill).
+            reset_index(drop = True).
+            assign(rtn = lambda x: x.rtn + x.roll).
+            drop(columns = ["roll"]))
+        
+        '''
         self.df_combined = (self.df_roll_min.merge(
             right = self.df_start, 
             how = "outer", 
@@ -181,6 +204,7 @@ class PriceGenerator:
                 contract = lambda x: x.contract.fillna(x.contract_name + "_1"),
                 rtn = lambda x: x.rtn + x.roll).
             drop(columns = ["roll"]))
+        '''
         
         if self.verbose == True: print("Calculating Cumulative Return to back out time series")
         
@@ -200,7 +224,7 @@ class PriceGenerator:
         
         if self.verbose == True: print("Adding OHLC Data to time series")
         
-        # create OHLC data, the random normal data gets put in furst and then zereod out for when markets
+        # create OHLC data, the random normal data gets put in first and then zereod out for when markets
         # are closed
         self.df_ohlc = (self.df_cumprod.assign(
             high_add = self.high_add,
@@ -220,8 +244,8 @@ class PriceGenerator:
             head(1))
                 
         vol_count = len(self.df_ohlc)
-        buy_vol = np.round(np.random.normal(loc = 1_000_000, scale = 300_000, size = vol_count))
-        sell_vol = np.round(np.random.normal(loc = 1_000_000, scale = 300_000, size = vol_count))
+        buy_vol = np.round(np.random.normal(loc = 4_000, scale = 30, size = vol_count))
+        sell_vol = np.round(np.random.normal(loc = 4_000, scale = 30, size = vol_count))
         
         self.df_vol = (self.df_ohlc.assign(
             buy_vol = buy_vol,
@@ -241,7 +265,8 @@ class PriceGenerator:
         self.df_vol.to_parquet(path = self.file_out, engine = "pyarrow")
         
         if self.verbose == True: print("File Written to", self.file_out)
-        
+
+         
 if __name__ == "__main__":        
 
     generator = PriceGenerator()
