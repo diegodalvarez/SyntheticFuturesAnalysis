@@ -13,7 +13,7 @@ class PriceGenerator:
     # fills in names for specifically rolled contracts
     def _fill(self, df: pd.DataFrame) -> pd.DataFrame:
         return(df.sort_values(
-            "date").
+            "local_time").
             fillna(method = "ffill").
             assign(contract = lambda x: x.contract.fillna(x.contract_name + "_1")))
     
@@ -180,7 +180,6 @@ class PriceGenerator:
             
         # combine together ffill to get contract names then remaining contracts 
         # are 1st then add roll in to rtn
-        
         self.df_combined = (self.df_roll_min.merge(
             right = self.df_start,
             how = "outer", 
@@ -191,20 +190,6 @@ class PriceGenerator:
             reset_index(drop = True).
             assign(rtn = lambda x: x.rtn + x.roll).
             drop(columns = ["roll"]))
-        
-        '''
-        self.df_combined = (self.df_roll_min.merge(
-            right = self.df_start, 
-            how = "outer", 
-            on = self.df_start.columns.to_list()).
-            assign(roll = lambda x: x.roll.fillna(0)).
-            sort_values(["contract_name", "date"]).
-            fillna(method = "ffill").
-            assign(
-                contract = lambda x: x.contract.fillna(x.contract_name + "_1"),
-                rtn = lambda x: x.rtn + x.roll).
-            drop(columns = ["roll"]))
-        '''
         
         if self.verbose == True: print("Calculating Cumulative Return to back out time series")
         
@@ -253,7 +238,8 @@ class PriceGenerator:
             assign(
                 buy_vol = lambda x: np.where(x.market_hour == "closed", 0, x.buy_vol),
                 sell_vol = lambda x: np.where(x.market_hour == "closed", 0, x.sell_vol)).
-            drop(columns = ["date"]))
+            drop(columns = ["date"]).
+            reset_index(drop = True))
                 
         if self.verbose == True: print("Checking OHLC relationship is preserved")
         self._check_ohlc()
@@ -266,7 +252,7 @@ class PriceGenerator:
         
         if self.verbose == True: print("File Written to", self.file_out)
 
-         
+        
 if __name__ == "__main__":        
 
     generator = PriceGenerator()
