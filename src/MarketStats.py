@@ -404,7 +404,7 @@ class MarketStats:
         
         if self.verbose == True: print("Intraday range saved as attribute df.intraday_rate\nintraday average range saved as attribute df_intraday_range_avg")
         
-    def plot_intraday_price_range_hist(self):
+    def plot_intraday_price_range_avg(self):
 
         (self.df_intraday_range_avg.plot(
             kind = "bar",
@@ -482,7 +482,7 @@ class MarketStats:
             id_vars = ["contract_name", "local_time", "field"], var_name = "roll").
             assign(date = lambda x: x.local_time.dt.date))
 
-        print("Working on Open")
+        if self.verbose == True: print("Working on Open")
         df_open = (df_price_adj_longer.query(
             "field == 'open_price'").
             drop(columns = ["field"]).
@@ -492,7 +492,7 @@ class MarketStats:
             rename(columns = {"value": "open_price"}).
             drop(columns = ["local_time"]))
 
-        print("Working on Close")
+        if self.verbose == True: print("Working on Close")
         df_close = (df_price_adj_longer.query(
             "field == 'close_price'").
             drop(columns = ["field"]).
@@ -502,7 +502,7 @@ class MarketStats:
             rename(columns = {"value": "close_price"}).
             drop(columns = ["local_time"]))
 
-        print("Working on High")
+        if self.verbose == True: print("Working on High")
         df_high = (df_price_adj_longer.query(
             "field == 'high_price'").
             drop(columns = ["field", "local_time"]).
@@ -512,7 +512,7 @@ class MarketStats:
             reset_index().
             rename(columns = {"value": "high_price"}))
 
-        print("Working on Low")
+        if self.verbose == True: print("Working on Low")
         df_low = (df_price_adj_longer.query(
             "field == 'low_price'").
             drop(columns = ["field", "local_time"]).
