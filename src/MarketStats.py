@@ -354,7 +354,7 @@ class MarketStats:
 
         fig.suptitle("Daily 5 minute Intraday returns from {}:00 to {}:00 NYC hours from {} to {}".format(
             self.nyc_intraday_hour1, 
-            self.nyc_intraday_hour1,
+            self.nyc_intraday_hour2,
             self.min_date,
             self.max_date))
         
@@ -583,7 +583,6 @@ class MarketStats:
                 ax = axes[0,i],
                 kind = "hist",
                 bins = 30,
-                xlabel = "True Range",
                 legend = False,
                 title = "{}\nRoll Adjusted (Mean: {})".format(
                     contract,
@@ -596,16 +595,17 @@ class MarketStats:
                 kind = "hist",
                 bins = 30,
                 legend = False,
-                xlabel = "True Range",
                 title = "Roll Unadjusted (Mean: {})".format(
                     round(df_unadj_mean, 4))))
 
             axes[1,i].axvline(df_unadj_mean, color = "red")
 
+            axes[0,i].set_xlabel("True Range")
+            axes[1,i].set_xlabel("True Range")
+
         fig.suptitle("Average True Range Daily (localized to local time) from {} to {}".format(
             self.min_date,
             self.max_date))
-
 
         plt.tight_layout(pad = 3)
         plt.show()

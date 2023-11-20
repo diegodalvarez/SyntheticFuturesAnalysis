@@ -38,9 +38,22 @@ def make_sample():
         date = lambda x: pd.to_datetime(x.local_time.dt.date),
         year = lambda x: x.date.dt.year).
         query("year == year.max()").
-        drop(columns = ["date", "year"]))
+        drop(columns = ["year"]))
+     
+    save_sample(
+        df = df_sample.drop(columns = ["date"]), 
+        data_path = data_path, 
+        file_name = "prices_sample")
     
-    save_sample(df = df_sample, data_path = data_path, file_name = "prices_sample")
+    df_month = (df_sample.assign(
+        month = lambda x: x.date.dt.month).
+        query("month == month.min()").
+        drop(columns = ["month", "date"]))
+    
+    save_sample(
+        df = df_month,
+        data_path = data_path,
+        file_name = "prices1m_sample")
     
 
 if __name__ == "__main__":
